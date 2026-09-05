@@ -1,0 +1,38 @@
+personal:
+  nationality: Afghanistan
+
+education:
+  degree: Bachelor
+  field: Computer Science
+  university: Kabul University
+  graduation_year: 2027
+  gpa: null
+
+english:
+  ielts: null
+  toefl: null
+
+skills:
+  - Python
+  - JavaScript
+  - React
+  - SQL
+
+interests:
+  - Artificial Intelligence
+  - Machine Learning
+  - Software Engineering
+  - Computer Science
+
+goals:
+  - Master's degree
+  - Fully funded scholarships
+  - Research opportunities
+  - Software internships
+
+preferred_countries:
+  - Germany
+  - Netherlands
+  - Turkey
+  - Canada
+
