@@ -116,7 +116,16 @@ The JSON object must contain exactly these keys:
 {fields}
 
 Rules:
-- deadline should be a date string if clearly available, otherwise null.
+- funding must describe the actual financial support or benefits stated in the
+    text, such as tuition coverage, stipend, accommodation, insurance, or other
+    fee waivers. Do not output "Unpaid" or similar employment wording merely
+    because this is a scholarship or because no salary is mentioned.
+- deadline should be the date for the current opportunity/application cycle
+    described in the text, if clearly available, otherwise null. If the text
+    says that the current cycle's deadline is not yet published, not announced,
+    or otherwise unavailable, return null. Ignore dates explicitly identified as
+    belonging to an older or previous cycle; never use an old cycle's deadline
+    as the current opportunity deadline.
 - required_documents should be a list of strings, or null.
 - other_eligibility_requirements should be a list of strings, or null.
 - All other fields should be strings or null.
