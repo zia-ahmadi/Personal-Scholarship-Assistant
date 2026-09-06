@@ -14,6 +14,7 @@ import requests
 
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
 DEFAULT_MODEL = "llama3.2:3b"
+OLLAMA_KEEP_ALIVE = "10m"
 
 OPPORTUNITY_FIELDS = [
     "title",
@@ -33,7 +34,7 @@ OPPORTUNITY_FIELDS = [
 def analyze_opportunity_text(
     opportunity_text: str,
     model: str = DEFAULT_MODEL,
-    timeout: int = 120,
+    timeout: int = 300,
 ) -> dict[str, Any]:
     """Extract structured opportunity data from text using local Ollama."""
     text = opportunity_text.strip()
@@ -55,6 +56,7 @@ def analyze_opportunity_text(
                 "prompt": prompt,
                 "stream": False,
                 "format": "json",
+                "keep_alive": OLLAMA_KEEP_ALIVE,
                 "options": {
                     "temperature": 0,
                 },
