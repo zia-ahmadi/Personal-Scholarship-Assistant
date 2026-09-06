@@ -1,6 +1,7 @@
 import streamlit as st
 
 from src.analyzer import analyze_opportunity_text
+from src.matcher import load_profile, match_opportunity
 from src.scraper import scrape_webpage_text
 
 
@@ -35,6 +36,29 @@ if st.button("Analyze Opportunity", type="primary"):
             else:
                 st.subheader("Extracted Opportunity Data")
                 st.json(analysis_result["data"])
+
+                try:
+                    profile = load_profile()
+                    match_result = match_opportunity(analysis_result["data"], profile)
+                except (OSError, ValueError) as error:
+                    st.error(f"Could not load profile: {error}")
+                else:
+                    st.subheader("My Match")
+                    st.write(
+                        f"Eligibility status: **{match_result['eligibility_status']}**"
+                    )
+                    if match_result["eligibility_status"] == "Uncertain":
+                        st.info("Some requirements could not be confirmed from the available information.")
+                    st.write(f"Match score: **{match_result['match_score']} / 100**")
+
+                    st.write("**Reasons**")
+                    st.write(match_result["reasons"] or "None")
+
+                    st.write("**Missing requirements**")
+                    st.write(match_result["missing_requirements"] or "None")
+
+                    st.write("**Uncertain requirements**")
+                    st.write(match_result["uncertain_requirements"] or "None")
 
                 with st.expander("Cleaned Webpage Text"):
                     st.text(scrape_result["text"][:5000])

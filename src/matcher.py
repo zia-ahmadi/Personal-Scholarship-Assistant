@@ -81,7 +81,8 @@ def _missing_profile_requirements(
 		missing.append("Nationality")
 	if _text(opportunity.get("degree_requirement")) and not _text(education.get("degree")):
 		missing.append("Degree or education level")
-	if _text(opportunity.get("field_requirement")) and not _text(education.get("field")):
+	field_requirement = _text(opportunity.get("field_requirement"))
+	if field_requirement and not _is_unrestricted_field(field_requirement) and not _text(education.get("field")):
 		missing.append("Field of study")
 	if _text(opportunity.get("gpa_requirement")) and education.get("gpa") is None:
 		missing.append("GPA")
@@ -124,14 +125,14 @@ def _check_degree(
 	if not degree:
 		return "degree", "uncertain", "User education level is missing."
 
-	requirement_level = _degree_level(requirement)
+	required_levels = _degree_levels(requirement)
 	profile_level = _degree_level(degree)
-	if requirement_level is None or profile_level is None:
+	if not required_levels or profile_level is None:
 		return "degree", "uncertain", "The degree requirement cannot be compared clearly."
-	if requirement_level == "master" and profile_level == "bachelor":
-		return "degree", "pass", "A bachelor's degree is the usual entry qualification for a master's opportunity."
-	if profile_level >= requirement_level:
+	if profile_level in required_levels:
 		return "degree", "pass", "The user's education level meets the stated degree requirement."
+	if required_levels == {"master"} and profile_level == "bachelor":
+		return "degree", "pass", "A bachelor's degree is the usual entry qualification for a master's opportunity."
 	return "degree", "fail", "The user's education level does not meet the stated degree requirement."
 
 
@@ -142,6 +143,8 @@ def _check_field(
 	field = _text(profile.get("education", {}).get("field"))
 	if not requirement:
 		return "field", "uncertain", "Field eligibility is not stated."
+	if _is_unrestricted_field(requirement):
+		return "field", "pass", "The opportunity accepts applicants from any academic field."
 	if not field:
 		return "field", "uncertain", "User field of study is missing."
 	if _field_matches(requirement, field):
@@ -212,18 +215,33 @@ def _number_in_text(value: str) -> float | None:
 	return float(match.group()) if match else None
 
 
-def _degree_level(value: str) -> int | None:
+def _degree_level(value: str) -> str | None:
 	lowered = value.lower()
-	if any(term in lowered for term in ("phd", "doctorate", "doctoral")):
-		return 3
-	if any(term in lowered for term in ("master", "graduate")):
-		return 2
-	if any(term in lowered for term in ("bachelor", "undergraduate")):
-		return 1
+	if re.search(r"\b(phd|doctorate|doctoral)\b", lowered):
+		return "phd"
+	if re.search(r"\b(master|graduate)\b", lowered):
+		return "master"
+	if re.search(r"\b(bachelor|undergraduate)\b", lowered):
+		return "bachelor"
 	return None
 
 
+def _degree_levels(value: str) -> set[str]:
+	"""Return every normalized degree level accepted by a requirement."""
+	levels: set[str] = set()
+	for level, terms in {
+		"bachelor": ("bachelor", "undergraduate"),
+		"master": ("master", "graduate"),
+		"phd": ("phd", "doctorate", "doctoral"),
+	}.items():
+		if any(re.search(rf"\b{term}\b", value.lower()) for term in terms):
+			levels.add(level)
+	return levels
+
+
 def _field_matches(requirement: str, field: str) -> bool:
+	if _is_unrestricted_field(requirement):
+		return True
 	requirement_words = set(re.findall(r"[a-z]+", requirement.lower()))
 	field_words = set(re.findall(r"[a-z]+", field.lower()))
 	aliases = {
@@ -234,6 +252,21 @@ def _field_matches(requirement: str, field: str) -> bool:
 	normalized_requirement = {aliases.get(word, word) for word in requirement_words}
 	normalized_field = {aliases.get(word, word) for word in field_words}
 	return bool(normalized_requirement & normalized_field) or field.lower() in requirement.lower()
+
+
+def _is_unrestricted_field(requirement: str) -> bool:
+	"""Identify requirements that explicitly accept any academic field."""
+	normalized = re.sub(r"[^a-z]+", " ", requirement.lower()).strip()
+	return normalized in {
+		"all",
+		"all fields",
+		"any field",
+		"any fields",
+		"any discipline",
+		"any subject",
+		"no field restriction",
+		"field of study not restricted",
+	}
 
 
 def _looks_exclusive(requirement: str) -> bool:
