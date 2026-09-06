@@ -1,0 +1,27 @@
+#!/bin/sh
+
+set -eu
+
+PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+PID_FILE="$PROJECT_DIR/.assistant.pids"
+
+if [ ! -f "$PID_FILE" ]; then
+    printf '%s\n' "Assistant is not running."
+    exit 0
+fi
+
+STREAMLIT_PID=$(sed -n '1p' "$PID_FILE")
+OLLAMA_PID=$(sed -n '2p' "$PID_FILE")
+
+if [ -n "$STREAMLIT_PID" ] && kill -0 "$STREAMLIT_PID" 2>/dev/null; then
+    kill "$STREAMLIT_PID" 2>/dev/null || true
+    printf '%s\n' "Stopped Streamlit."
+fi
+
+if [ -n "$OLLAMA_PID" ] && kill -0 "$OLLAMA_PID" 2>/dev/null; then
+    kill "$OLLAMA_PID" 2>/dev/null || true
+    printf '%s\n' "Stopped Ollama started by this project."
+fi
+
+rm -f "$PID_FILE"
+printf '%s\n' "Assistant stopped."

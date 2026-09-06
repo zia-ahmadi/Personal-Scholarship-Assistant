@@ -1,0 +1,57 @@
+#!/bin/sh
+
+set -eu
+
+PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+OLLAMA_URL=${OLLAMA_URL:-http://127.0.0.1:11434}
+OLLAMA_STARTED_BY_SCRIPT=0
+OLLAMA_LOG="$PROJECT_DIR/ollama.log"
+PID_FILE="$PROJECT_DIR/.assistant.pids"
+
+cd "$PROJECT_DIR"
+
+if [ ! -f "$PROJECT_DIR/.venv/bin/activate" ]; then
+    printf '%s\n' "Missing .venv. Create it with: python3 -m venv .venv"
+    printf '%s\n' "Then install dependencies with: .venv/bin/pip install -r requirements.txt"
+    exit 1
+fi
+
+if ! curl -fsS --max-time 2 "$OLLAMA_URL/api/tags" >/dev/null 2>&1; then
+    printf '%s\n' "Starting Ollama..."
+    ollama serve >"$OLLAMA_LOG" 2>&1 &
+    OLLAMA_PID=$!
+    OLLAMA_STARTED_BY_SCRIPT=1
+else
+    OLLAMA_PID=""
+fi
+
+attempt=1
+while ! curl -fsS --max-time 2 "$OLLAMA_URL/api/tags" >/dev/null 2>&1; do
+    if [ "$attempt" -ge 30 ]; then
+        printf '%s\n' "Ollama did not become ready within 30 seconds."
+        if [ "$OLLAMA_STARTED_BY_SCRIPT" -eq 1 ]; then
+            kill "$OLLAMA_PID" 2>/dev/null || true
+        fi
+        printf '%s\n' "See $OLLAMA_LOG for details."
+        exit 1
+    fi
+    sleep 1
+    attempt=$((attempt + 1))
+done
+
+printf '%s\n' "Ollama is ready. Starting the assistant..."
+
+. "$PROJECT_DIR/.venv/bin/activate"
+streamlit run "$PROJECT_DIR/app.py" &
+STREAMLIT_PID=$!
+printf '%s\n' "$STREAMLIT_PID" "${OLLAMA_PID:-}" >"$PID_FILE"
+
+cleanup() {
+    rm -f "$PID_FILE"
+    if [ "$OLLAMA_STARTED_BY_SCRIPT" -eq 1 ]; then
+        kill "$OLLAMA_PID" 2>/dev/null || true
+    fi
+}
+
+trap cleanup EXIT INT TERM
+wait "$STREAMLIT_PID"
